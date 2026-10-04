@@ -1,0 +1,4 @@
+pika==1.4.4
+minio==7.2.20
+psycopg[binary,pool]==3.3.6
+pillow==12.3.0

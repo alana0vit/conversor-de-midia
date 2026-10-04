@@ -1,0 +1,6 @@
+# Para rodar os testes e o benchmark na sua máquina (fora do Docker)
+-r api/requirements.txt
+-r worker/requirements.txt
+pytest==9.1.1
+httpx==0.28.1
+requests==2.34.2

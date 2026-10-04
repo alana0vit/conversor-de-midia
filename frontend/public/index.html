@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Conversor PNG para JPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400&family=Atkinson+Hyperlegible+Next:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <h1>PNG para JPG</h1>
+    <p class="lede">Envie imagens, acompanhe cada pedido pela fila e receba o link do arquivo convertido por e-mail.</p>
+  </header>
+
+  <main class="layout">
+    <section class="panel send" aria-labelledby="send-title">
+      <h2 id="send-title">Novo pedido</h2>
+      <form id="upload-form" novalidate>
+        <label class="drop" id="drop">
+          <input type="file" id="file" name="file" accept=".png,image/png" multiple required>
+          <span class="drop-main" id="drop-text">Arraste arquivos PNG ou clique para escolher</span>
+          <span class="drop-hint">Vários arquivos viram vários pedidos. Até 20 MB cada.</span>
+        </label>
+
+        <label class="field">
+          <span>Converter para</span>
+          <select id="target" name="targetFormat" required></select>
+        </label>
+
+        <label class="field">
+          <span>E-mail para o aviso</span>
+          <input type="email" id="email" name="email" autocomplete="email" placeholder="voce@exemplo.com" required>
+        </label>
+
+        <button type="submit" id="submit">Enviar para conversão</button>
+        <div id="receipt" class="receipt" role="status" aria-live="polite"></div>
+      </form>
+
+      <form id="lookup-form" class="lookup">
+        <label class="field">
+          <span>Acompanhar um pedido pelo código</span>
+          <input id="lookup-id" placeholder="jobId" spellcheck="false" autocomplete="off">
+        </label>
+        <button type="submit" class="secondary">Buscar</button>
+      </form>
+    </section>
+
+    <section class="jobs" aria-labelledby="jobs-title">
+      <h2 id="jobs-title">Pedidos</h2>
+      <ol id="job-list" class="job-list"></ol>
+      <p id="empty" class="empty">Nenhum pedido ainda. Envie um PNG ao lado para ver ele atravessar a fila.</p>
+    </section>
+
+    <section class="system" aria-labelledby="system-title">
+      <h2 id="system-title">Estado do sistema</h2>
+      <dl class="metrics" id="metrics"></dl>
+      <div class="per-worker">
+        <h3>Concluídos por worker</h3>
+        <ul id="per-worker"></ul>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

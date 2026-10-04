@@ -1,0 +1,171 @@
+name: conversor-midia
+
+# Sobe tudo com:   docker compose up --build
+# Todas as variáveis têm valor padrão; o arquivo .env é opcional.
+
+# Variáveis comuns aos serviços da aplicação (âncora YAML reaproveitada abaixo)
+# Uma única imagem do MinIO para o servidor e para o init: ela já inclui o
+# cliente "mc". A MinIO removeu suas imagens do Docker Hub (set/2026) e a
+# imagem separada do mc não está mais acessível; o registro atual é o quay.io.
+x-minio-image: &minio-image quay.io/minio/minio:RELEASE.2024-11-07T00-52-20Z
+
+x-app-env: &app-env
+  RABBITMQ_URL: amqp://${RABBITMQ_USER:-conversor}:${RABBITMQ_PASSWORD:-conversor123}@rabbitmq:5672/%2F
+  DATABASE_URL: postgresql://${POSTGRES_USER:-conversor}:${POSTGRES_PASSWORD:-conversor123}@postgres:5432/${POSTGRES_DB:-conversor}
+  MINIO_ENDPOINT: http://minio:9000
+  MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+  MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+  MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
+  UPLOADS_BUCKET: ${UPLOADS_BUCKET:-uploads}
+  CONVERTED_BUCKET: ${CONVERTED_BUCKET:-converted}
+
+x-app-depends: &app-depends
+  rabbitmq:
+    condition: service_healthy
+  postgres:
+    condition: service_healthy
+  minio-init:
+    condition: service_completed_successfully
+
+services:
+
+  # ======================= APLICAÇÃO =======================================
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"                 # interface: http://localhost:8080
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    environment:
+      <<: *app-env
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-20}
+    ports:
+      - "8000:8000"               # documentação automática: http://localhost:8000/docs
+    depends_on: *app-depends
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    environment:
+      <<: *app-env
+      MAX_ATTEMPTS: ${MAX_ATTEMPTS:-3}
+      RETRY_DELAY_MS: ${RETRY_DELAY_MS:-5000}
+      CONVERSION_DELAY_SECONDS: ${CONVERSION_DELAY_SECONDS:-8}
+    depends_on: *app-depends
+    deploy:
+      replicas: ${WORKER_REPLICAS:-2}   # ou: docker compose up -d --scale worker=4
+    restart: unless-stopped
+    # Sem container_name e sem ports: isso impediria ter várias réplicas.
+
+  notifier:
+    build:
+      context: .
+      dockerfile: notifier/Dockerfile
+    environment:
+      <<: *app-env
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_FROM: ${SMTP_FROM:-Conversor de Mídia <nao-responda@conversor.local>}
+    depends_on: *app-depends
+    restart: unless-stopped
+
+  # ======================= INFRAESTRUTURA ==================================
+
+  # Broker de mensagens -----------------------------------------------------
+  rabbitmq:
+    image: rabbitmq:4-management
+    hostname: rabbitmq            # fixa o nome do nó -> dados persistem entre restarts
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-conversor}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-conversor123}
+    # A porta AMQP (5672) NÃO é publicada no host: os serviços usam a rede interna.
+    ports:
+      - "15672:15672"             # painel web: http://localhost:15672
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Object storage ----------------------------------------------------------
+  # Silo: fork comunitário do MinIO (mesma API S3, mesmas variáveis MINIO_*).
+  # As imagens oficiais minio/minio e minio/mc foram removidas do Docker Hub
+  # e do quay.io em set/2026, após a MinIO encerrar a edição comunitária.
+  minio:
+    image: pgsty/silo:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    ports:
+      - "9000:9000"               # API S3 (e links públicos)
+      - "9001:9001"               # console web: http://localhost:9001
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+
+  # Execução única: espera o storage, cria buckets, política pública e lifecycle.
+  # Reaproveita a imagem da API, que já tem a biblioteca minio-py.
+  minio-init:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    command: ["python", "/setup/setup.py"]
+    environment:
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      UPLOADS_BUCKET: ${UPLOADS_BUCKET:-uploads}
+      CONVERTED_BUCKET: ${CONVERTED_BUCKET:-converted}
+      CONVERTED_EXPIRATION_DAYS: ${CONVERTED_EXPIRATION_DAYS:-7}
+    volumes:
+      - ./infra/minio/setup.py:/setup/setup.py:ro
+    depends_on:
+      minio:
+        condition: service_started
+    healthcheck:
+      disable: true
+    restart: "no"
+
+  # Estado dos jobs ---------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-conversor}
+      POSTGRES_USER: ${POSTGRES_USER:-conversor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-conversor123}
+    # Sem "ports": o banco só é acessível pela rede interna do Docker (postgres:5432).
+    # Isso evita conflito com um PostgreSQL instalado no computador.
+    # Para inspecionar: docker compose exec postgres psql -U conversor
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Servidor SMTP de teste --------------------------------------------------
+  mailpit:
+    image: axllent/mailpit:latest
+    # O SMTP (1025) fica só na rede interna; o notificador usa mailpit:1025.
+    ports:
+      - "8025:8025"               # caixa de entrada web: http://localhost:8025
+
+volumes:
+  rabbitmq_data:
+  minio_data:
+  postgres_data:

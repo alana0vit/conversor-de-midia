@@ -1,0 +1,4 @@
+# Garante LF nos scripts shell mesmo se clonado no Windows
+# (com CRLF o setup.sh do MinIO quebra dentro do container)
+*.sh text eol=lf
+*.py text eol=lf

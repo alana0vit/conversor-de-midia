@@ -1,0 +1,2 @@
+pika==1.4.4
+psycopg[binary,pool]==3.3.6
