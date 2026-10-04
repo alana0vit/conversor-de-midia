@@ -63,5 +63,10 @@ def test_completed_event_requires_link():
         }))
 
 
+def test_jpeg_alias_is_normalized():
+    msg = ConversionRequest.from_json(json.dumps({**VALID, "sourceFormat": "JPEG", "targetFormat": "png"}))
+    assert (msg.sourceFormat, msg.targetFormat) == ("jpg", "png")
+
+
 def test_smaller_files_get_higher_priority():
     assert priority_for_size(100_000) > priority_for_size(3_000_000) > priority_for_size(50_000_000)

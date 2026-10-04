@@ -28,6 +28,7 @@ from mediaconv_common.contract import (
     ConversionRequest,
     is_supported,
     is_valid_email,
+    normalize_format,
     priority_for_size,
     utc_now_iso,
 )
@@ -36,7 +37,10 @@ from mediaconv_common.settings import env, env_int, setup_logging
 log = logging.getLogger("api")
 
 # Assinaturas binárias: validamos o conteúdo, não só a extensão do nome.
-MAGIC_BYTES = {"png": b"\x89PNG\r\n\x1a\n"}
+MAGIC_BYTES = {
+    "png": b"\x89PNG\r\n\x1a\n",
+    "jpg": b"\xff\xd8\xff",
+}
 
 
 @dataclass
@@ -121,15 +125,16 @@ def create_app(repo=None, storage=None, publisher=None, settings: Optional[Setti
     ):
         st: Settings = app.state.settings
         email = email.strip()
-        target = targetFormat.strip().lower().lstrip(".")
+        target = normalize_format(targetFormat)
         filename = os.path.basename(file.filename or "arquivo")
-        source = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+        source = normalize_format(filename.rsplit(".", 1)[-1]) if "." in filename else ""
 
         # 1) Validação ------------------------------------------------------
         if not is_valid_email(email):
             raise HTTPException(422, "E-mail inválido.")
         if source not in SUPPORTED_CONVERSIONS:
-            raise HTTPException(415, f"Formato de origem .{source or '?'} não suportado. Envie um arquivo PNG.")
+            accepted = " ou ".join(f.upper() for f in SUPPORTED_CONVERSIONS)
+            raise HTTPException(415, f"Formato de origem .{source or '?'} não suportado. Envie um arquivo {accepted}.")
         if not is_supported(source, target):
             raise HTTPException(422, f"Conversão {source} → {target} não suportada.")
 

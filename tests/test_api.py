@@ -69,6 +69,7 @@ def test_accepts_and_publishes_contract_message():
     ({"name": "foto.gif"}, 415),
     ({"data": b"GIF89a nao sou png"}, 415),
     ({"target": "webp"}, 422),
+    ({"target": "png"}, 422),            # PNG -> PNG não existe
     ({"email": "sem-arroba"}, 422),
     ({"data": b""}, 422),
 ])
@@ -95,4 +96,20 @@ def test_broker_down_returns_503_and_cleans_up():
 
 def test_formats_endpoint():
     client, *_ = make_client()
-    assert client.get("/api/formats").json() == {"png": ["jpg"]}
+    assert client.get("/api/formats").json() == {"png": ["jpg"], "jpg": ["png"]}
+
+
+@pytest.mark.parametrize("name", ["foto.jpg", "foto.JPEG"])
+def test_accepts_jpg_to_png(name):
+    client, repo, storage, pub = make_client()
+    jpg = b"\xff\xd8\xff\xe0" + b"0" * 100
+    res = post(client, data=jpg, name=name, target="png")
+    assert res.status_code == 202
+    [(msg, _)] = pub.messages
+    assert (msg.sourceFormat, msg.targetFormat) == ("jpg", "png")
+    assert ("uploads", f"{msg.jobId}.jpg") in storage.objects
+
+
+def test_png_disguised_as_jpg_is_rejected():
+    client, *_ = make_client()
+    assert post(client, name="foto.jpg", target="png").status_code == 415

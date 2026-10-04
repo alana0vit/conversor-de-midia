@@ -73,9 +73,13 @@ services:
       dockerfile: notifier/Dockerfile
     environment:
       <<: *app-env
+      # Padrão: Mailpit (captura tudo localmente). Para e-mail real, configure no .env.
       SMTP_HOST: ${SMTP_HOST:-mailpit}
       SMTP_PORT: ${SMTP_PORT:-1025}
       SMTP_FROM: ${SMTP_FROM:-Conversor de Mídia <nao-responda@conversor.local>}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
     depends_on: *app-depends
     restart: unless-stopped
 

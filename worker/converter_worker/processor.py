@@ -37,6 +37,12 @@ from .converters import PermanentError, get_converter
 log = logging.getLogger("worker.processor")
 
 
+def download_name(original: str, target_format: str) -> str:
+    """'ferias.png' + 'jpg' -> 'ferias.jpg' (nome sugerido ao baixar)."""
+    stem = original.rsplit(".", 1)[0] if "." in original else original
+    return f"{stem or 'arquivo'}.{target_format}"
+
+
 def describe(exc: Exception) -> str:
     """Resumo legível de uma exceção (erros do S3 trazem texto enorme)."""
     code = getattr(exc, "code", None)
@@ -116,7 +122,7 @@ class JobProcessor:
             if self.storage.exists(self.s.converted_bucket, result_key):
                 log.info("job %s: resultado já existe no MinIO, pulando conversão", req.jobId)
             else:
-                self._convert(db, req, result_key)
+                self._convert(db, req, result_key, download_name(job["original_filename"], req.targetFormat))
         except PermanentError as exc:
             return self._fail(db, req, job, str(exc))
         except Exception as exc:  # noqa: BLE001  (rede, MinIO fora do ar, disco...)
@@ -131,7 +137,7 @@ class JobProcessor:
         return Result(Outcome.ACK, "convertido")
 
     # ------------------------------------------------------------------
-    def _convert(self, db, req: ConversionRequest, result_key: str) -> None:
+    def _convert(self, db, req: ConversionRequest, result_key: str, name: str) -> None:
         converter = get_converter(req.sourceFormat, req.targetFormat)
         with tempfile.TemporaryDirectory() as tmp:
             src = os.path.join(tmp, f"source.{req.sourceFormat}")
@@ -146,7 +152,8 @@ class JobProcessor:
             db.progress(req.jobId, 90)
 
             self.storage.upload_file(self.s.converted_bucket, result_key, dst,
-                                     CONTENT_TYPES[req.targetFormat])  # PUT resultado
+                                     CONTENT_TYPES[req.targetFormat],
+                                     download_name=name)               # PUT resultado
             # Só seguimos (e depois apagamos a origem) se o resultado está gravado.
             if not self.storage.exists(self.s.converted_bucket, result_key):
                 raise RuntimeError("upload do resultado não confirmado pelo MinIO")

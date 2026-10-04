@@ -1,13 +1,13 @@
 """Conversores de mídia, indexados por (formato_origem, formato_destino).
 
 Para adicionar WAV -> MP3: escrever uma função que chama o FFmpeg e registrá-la
-em CONVERTERS. Nada mais no worker precisa mudar.
+em CONVERTERS (e incluir a conversão no contrato). Nada mais no worker muda.
 """
 from __future__ import annotations
 
 from typing import Callable
 
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 # Proteção contra "decompression bomb": imagens absurdamente grandes viram erro.
 Image.MAX_IMAGE_PIXELS = 100_000_000
@@ -17,18 +17,21 @@ class PermanentError(Exception):
     """Erro que não se resolve tentando de novo (arquivo corrompido, formato inválido)."""
 
 
-def png_to_jpg(src_path: str, dst_path: str) -> None:
-    # Leitura: falhas aqui significam arquivo ruim -> erro permanente.
+def _open(src_path: str, expected: str) -> Image.Image:
+    """Abre e decodifica a imagem inteira. Falhas aqui = arquivo ruim = erro permanente."""
     try:
         img = Image.open(src_path)
         img.load()
     except (UnidentifiedImageError, Image.DecompressionBombError, SyntaxError, OSError) as exc:
         raise PermanentError(f"imagem inválida ou corrompida: {exc}") from exc
+    if img.format != expected:
+        img.close()
+        raise PermanentError(f"arquivo não é {expected} (detectado: {img.format})")
+    return img
 
-    with img:
-        if img.format != "PNG":
-            raise PermanentError(f"arquivo não é PNG (detectado: {img.format})")
 
+def png_to_jpg(src_path: str, dst_path: str) -> None:
+    with _open(src_path, "PNG") as img:
         # JPG não tem transparência. Sem este tratamento, as áreas
         # transparentes ficariam pretas. Achatamos sobre fundo branco.
         has_alpha = img.mode in ("RGBA", "LA") or (
@@ -45,8 +48,21 @@ def png_to_jpg(src_path: str, dst_path: str) -> None:
     out.save(dst_path, "JPEG", quality=90, optimize=True, progressive=True)
 
 
+def jpg_to_png(src_path: str, dst_path: str) -> None:
+    with _open(src_path, "JPEG") as img:
+        # Fotos de celular guardam a rotação no EXIF; aplicamos para a imagem
+        # não sair "deitada", já que o PNG não carrega essa informação.
+        out = ImageOps.exif_transpose(img)
+        if out.mode not in ("RGB", "L"):      # ex.: CMYK, que o PNG não suporta
+            out = out.convert("RGB")
+
+    # PNG é sem perdas: a imagem fica igual ao JPG, mas o arquivo costuma crescer.
+    out.save(dst_path, "PNG", optimize=True)
+
+
 CONVERTERS: dict[tuple[str, str], Callable[[str, str], None]] = {
     ("png", "jpg"): png_to_jpg,
+    ("jpg", "png"): jpg_to_png,
 }
 
 

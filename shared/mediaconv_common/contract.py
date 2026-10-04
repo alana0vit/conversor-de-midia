@@ -18,15 +18,22 @@ from typing import Optional
 
 CONTRACT_VERSION = 1
 
-# Conversões suportadas: formato de origem -> formatos de destino.
-# Para suportar WAV -> MP3 bastaria acrescentar uma linha aqui e um conversor
-# no registro do worker (converter_worker/converters.py).
 SUPPORTED_CONVERSIONS: dict[str, set[str]] = {
     "png": {"jpg"},
+    "jpg": {"png"},
 }
 
-SOURCE_TYPES = {"png": "image"}                      # formato -> tipo de mídia
+SOURCE_TYPES = {"png": "image", "jpg": "image"}        # formato -> tipo de mídia
 CONTENT_TYPES = {"png": "image/png", "jpg": "image/jpeg"}
+
+# Extensões diferentes para o mesmo formato.
+FORMAT_ALIASES = {"jpeg": "jpg"}
+
+
+def normalize_format(value: str) -> str:
+    value = (value or "").strip().lower().lstrip(".")
+    return FORMAT_ALIASES.get(value, value)
+
 
 # Status persistidos no banco (sem acento para evitar problemas de encoding;
 # a interface exibe com acento).
@@ -121,8 +128,8 @@ class ConversionRequest:
             jobId=_require(data, "jobId", str),
             sourceUrl=_require(data, "sourceUrl", str),
             sourceType=_require(data, "sourceType", str),
-            sourceFormat=_require(data, "sourceFormat", str).lower(),
-            targetFormat=_require(data, "targetFormat", str).lower(),
+            sourceFormat=normalize_format(_require(data, "sourceFormat", str)),
+            targetFormat=normalize_format(_require(data, "targetFormat", str)),
             notifyEmail=_require(data, "notifyEmail", str),
             requestedAt=_require(data, "requestedAt", str),
             attempt=int(data.get("attempt", 1)),

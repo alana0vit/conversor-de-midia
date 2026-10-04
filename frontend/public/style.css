@@ -74,7 +74,6 @@ h3 { font-size: 0.9375rem; font-weight: 700; margin-bottom: var(--s2); }
 .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .drop:focus-within { outline: 3px solid var(--working); outline-offset: 2px; }
 .drop.over, .drop:hover { border-color: var(--working); }
-.drop.filled { border-style: solid; border-color: var(--ink); }
 .drop-main { font-weight: 700; }
 .drop-hint { color: var(--ink-soft); font-size: 0.875rem; }
 
@@ -210,3 +209,73 @@ button.secondary { background: transparent; color: var(--ink); border: 1px solid
   .seg i { transition: none; }
   .job[data-status="PROCESSANDO"] .s2 { animation: none; }
 }
+
+/* ---------- arquivos escolhidos ---------- */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+.file-list { list-style: none; margin: calc(-1 * var(--s2)) 0 var(--s4); padding: 0; display: grid; gap: var(--s1); }
+.file {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: var(--s1) var(--s2);
+  padding: var(--s1) var(--s1) var(--s1) var(--s3);
+  background: var(--paper);
+  border-radius: 6px;
+  font-size: 0.9375rem;
+}
+.file.invalid { background: #fbeceb; }
+.file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-target { display: flex; align-items: center; gap: var(--s1); color: var(--ink-soft); }
+.file-target select { width: auto; padding: 2px var(--s2); font-size: 0.875rem; }
+.file.invalid .remove { grid-column: 3; }
+.file-error { grid-column: 1 / -1; color: var(--error); font-size: 0.8125rem; margin-top: -2px; padding-bottom: var(--s1); }
+button.remove {
+  width: 2rem; height: 2rem; padding: 0;
+  background: transparent; color: var(--ink-soft);
+  font-size: 1.25rem; line-height: 1; border-radius: 4px;
+}
+button.remove:hover { background: var(--line); color: var(--ink); }
+
+/* ---------- link público ---------- */
+.job-conv { font-weight: 400; font-size: 0.8125rem; color: var(--ink-soft); margin-left: var(--s2); }
+.result {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: var(--s3);
+  align-items: center;
+  padding: var(--s2);
+  background: #e8f3ec;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+}
+.thumb { display: block; width: 72px; height: 72px; border-radius: 4px; overflow: hidden;
+  background: repeating-conic-gradient(#d6dcd9 0% 25%, #fff 0% 50%) 0 / 12px 12px; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.result-body { display: grid; gap: var(--s1); min-width: 0; }
+.result-label { font-weight: 700; color: var(--done); }
+.url { font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.result-actions { display: flex; gap: var(--s2); flex-wrap: wrap; }
+.result-actions .btn, button.copy {
+  width: auto; display: inline-block;
+  padding: var(--s1) var(--s3);
+  font: inherit; font-weight: 700; font-size: 0.8125rem;
+  border-radius: 6px; text-decoration: none; cursor: pointer;
+}
+.result-actions .btn { background: var(--done); color: #fff; }
+button.copy { background: transparent; color: var(--done); border: 1px solid var(--done); }
+
+/* ---------- consulta ---------- */
+.lookup h3 { margin-bottom: var(--s1); }
+.hint { margin: 0 0 var(--s3); font-size: 0.875rem; color: var(--ink-soft); }
+.lookup-result { margin-top: var(--s3); font-size: 0.9375rem; }
+.lookup-result p { margin: 0 0 var(--s2); }
+.lookup-result .url { white-space: normal; word-break: break-all; }
+.st { font-weight: 700; }
+.st-CONCLUIDO { color: var(--done); }
+.st-ERRO { color: var(--error); }
+.st-PROCESSANDO { color: var(--working); }
+

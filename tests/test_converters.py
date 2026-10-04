@@ -2,7 +2,7 @@ from PIL import Image
 
 import pytest
 
-from converter_worker.converters import PermanentError, get_converter, png_to_jpg
+from converter_worker.converters import PermanentError, get_converter, jpg_to_png, png_to_jpg
 from helpers import png_bytes
 
 
@@ -51,3 +51,43 @@ def test_corrupted_file_is_permanent_error(tmp_path):
 def test_unknown_conversion_is_permanent_error():
     with pytest.raises(PermanentError):
         get_converter("png", "webp")
+
+
+def test_jpg_becomes_png(tmp_path):
+    src, dst = tmp_path / "in.jpg", tmp_path / "out.png"
+    Image.new("RGB", (40, 30), (10, 200, 10)).save(src, "JPEG")
+    jpg_to_png(str(src), str(dst))
+    out = Image.open(dst)
+    assert out.format == "PNG" and out.size == (40, 30)
+
+
+def test_jpg_exif_rotation_is_applied(tmp_path):
+    src, dst = tmp_path / "in.jpg", tmp_path / "out.png"
+    img = Image.new("RGB", (40, 20))
+    exif = img.getexif()
+    exif[0x0112] = 6                                    # girar 90 graus
+    img.save(src, "JPEG", exif=exif)
+    jpg_to_png(str(src), str(dst))
+    assert Image.open(dst).size == (20, 40)
+
+
+def test_cmyk_jpg_becomes_rgb_png(tmp_path):
+    src, dst = tmp_path / "in.jpg", tmp_path / "out.png"
+    Image.new("CMYK", (10, 10)).save(src, "JPEG")
+    jpg_to_png(str(src), str(dst))
+    assert Image.open(dst).mode == "RGB"
+
+
+def test_png_renamed_to_jpg_is_permanent_error(tmp_path):
+    src = tmp_path / "in.jpg"
+    src.write_bytes(png_bytes())
+    with pytest.raises(PermanentError):
+        jpg_to_png(str(src), str(tmp_path / "out.png"))
+
+
+def test_sample_corrupted_file_goes_to_dlq(tmp_path):
+    """O arquivo samples/corrompido.png deve falhar de forma permanente (-> DLQ)."""
+    from pathlib import Path
+    sample = Path(__file__).resolve().parents[1] / "samples" / "corrompido.png"
+    with pytest.raises(PermanentError):
+        png_to_jpg(str(sample), str(tmp_path / "out.jpg"))

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Conversor PNG para JPG</title>
+  <title>Conversor PNG e JPG</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400&family=Atkinson+Hyperlegible+Next:wght@400;700&display=swap" rel="stylesheet">
@@ -11,7 +11,7 @@
 </head>
 <body>
   <header class="top">
-    <h1>PNG para JPG</h1>
+    <h1>PNG ⇄ JPG</h1>
     <p class="lede">Envie imagens, acompanhe cada pedido pela fila e receba o link do arquivo convertido por e-mail.</p>
   </header>
 
@@ -20,15 +20,11 @@
       <h2 id="send-title">Novo pedido</h2>
       <form id="upload-form" novalidate>
         <label class="drop" id="drop">
-          <input type="file" id="file" name="file" accept=".png,image/png" multiple required>
-          <span class="drop-main" id="drop-text">Arraste arquivos PNG ou clique para escolher</span>
-          <span class="drop-hint">Vários arquivos viram vários pedidos. Até 20 MB cada.</span>
+          <input type="file" id="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" multiple>
+          <span class="drop-main">Arraste imagens PNG ou JPG, ou clique para escolher</span>
+          <span class="drop-hint" id="drop-hint">Cada arquivo vira um pedido. Até 20 MB cada.</span>
         </label>
-
-        <label class="field">
-          <span>Converter para</span>
-          <select id="target" name="targetFormat" required></select>
-        </label>
+        <ul id="file-list" class="file-list" aria-label="Arquivos escolhidos"></ul>
 
         <label class="field">
           <span>E-mail para o aviso</span>
@@ -40,11 +36,14 @@
       </form>
 
       <form id="lookup-form" class="lookup">
+        <h3>Consultar um pedido</h3>
+        <p class="hint">Cole o código (jobId) recebido ao enviar ou no e-mail para ver o status de um pedido, mesmo em outro computador ou depois de fechar esta página.</p>
         <label class="field">
-          <span>Acompanhar um pedido pelo código</span>
-          <input id="lookup-id" placeholder="jobId" spellcheck="false" autocomplete="off">
+          <span class="visually-hidden">Código do pedido</span>
+          <input id="lookup-id" placeholder="ex.: 91bfce01-15a8-4912-84af-dc5f92ba350a" spellcheck="false" autocomplete="off">
         </label>
-        <button type="submit" class="secondary">Buscar</button>
+        <button type="submit" class="secondary">Consultar</button>
+        <div id="lookup-result" class="lookup-result" role="status" aria-live="polite"></div>
       </form>
     </section>
 

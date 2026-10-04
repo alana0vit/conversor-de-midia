@@ -10,6 +10,7 @@ class FakeStorage:
 
     def __init__(self):
         self.objects: dict[tuple[str, str], bytes] = {}
+        self.download_names: dict[tuple[str, str], str] = {}
         self.fail_download = 0          # quantas vezes o download deve falhar
 
     def object_url(self, bucket, key):
@@ -27,9 +28,10 @@ class FakeStorage:
         with open(dest, "wb") as fh:
             fh.write(self.objects[(bucket, key)])
 
-    def upload_file(self, bucket, key, path, content_type):
+    def upload_file(self, bucket, key, path, content_type, download_name=None):
         with open(path, "rb") as fh:
             self.objects[(bucket, key)] = fh.read()
+        self.download_names[(bucket, key)] = download_name
 
     def exists(self, bucket, key):
         return (bucket, key) in self.objects

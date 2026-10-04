@@ -145,3 +145,19 @@ def test_progress_reaches_100(env):
     job_id, req = new_job(repo, storage)
     proc.handle(req)
     assert repo.jobs[job_id]["progress"] == 100
+
+
+def test_result_is_saved_as_download_with_friendly_name(env):
+    proc, repo, storage, events = env
+    job_id, req = new_job(repo, storage)
+    repo.jobs[job_id]["original_filename"] = "férias 2026.png"
+    proc.handle(req)
+    assert storage.download_names[("converted", f"{job_id}.jpg")] == "férias 2026.jpg"
+
+
+def test_attachment_header_keeps_accents_and_is_ascii_safe():
+    from mediaconv_common.storage import attachment_header
+    h = attachment_header('férias "1".jpg')
+    h.encode("latin-1")                                  # cabeçalho HTTP válido
+    assert h.startswith("attachment;")
+    assert "filename*=UTF-8''f%C3%A9rias%20%221%22.jpg" in h

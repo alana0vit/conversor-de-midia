@@ -1,14 +1,17 @@
-# Conversor PNG → JPG com processamento assíncrono
+# Conversor PNG ⇄ JPG com processamento assíncrono
 
 Sistema distribuído de conversão de imagens. O usuário envia um PNG pela
 interface web, recebe o `jobId` na hora e a conversão acontece em segundo
 plano, em workers que consomem uma fila do **RabbitMQ**. Os arquivos ficam no
 **MinIO** e o usuário recebe por e-mail o link público do JPG.
 
-> Formato escolhido para o trabalho (autorizado pelo professor): **PNG → JPG**.
-> O worker usa um registro de conversores, então incluir outro formato
-> (ex.: WAV → MP3 com FFmpeg) exige apenas uma função nova e uma linha no
-> contrato. Nenhuma outra parte do sistema muda.
+> Formato escolhido para o trabalho: **PNG → JPG**. Como demonstração da
+> extensibilidade, o caminho inverso **JPG → PNG** também está habilitado.
+> Cada conversão é uma função registrada no worker
+> (`worker/converter_worker/converters.py`) mais uma linha no contrato
+> (`SUPPORTED_CONVERSIONS` em `shared/mediaconv_common/contract.py`); nenhuma
+> outra parte do sistema muda. Para manter só PNG → JPG, basta apagar a linha
+> `"jpg": {"png"}` do contrato.
 
 ---
 
@@ -185,14 +188,36 @@ Feche o programa ou troque a porta do lado esquerdo no compose (por exemplo,
 | RabbitMQ (painel) | http://localhost:15672 | `conversor` / `conversor123` |
 | MinIO (console) | http://localhost:9001 | `minioadmin` / `minioadmin123` |
 | Mailpit (caixa de entrada) | http://localhost:8025 | — |
-| Links públicos dos JPGs | http://localhost:9000/converted/{jobId}.jpg | — |
+| Links públicos (RF04) | http://localhost:9000/converted/{jobId}.jpg (ou `.png`) | — |
+
+### Onde está o link público (RF04)
+
+O arquivo convertido fica no bucket `converted`, que tem leitura pública
+anônima. O link segue o formato
+`http://localhost:9000/converted/<jobId>.<formato>` e aparece em três
+lugares:
+
+- **Na interface:** cada pedido concluído mostra o link por extenso, com botão "Copiar".
+- **No e-mail:** o botão "Baixar o arquivo convertido" e o link escrito por extenso.
+- **Na API:** o campo `publicUrl` de `GET /api/jobs/{jobId}`.
+
+Ele funciona em qualquer navegador sem login, inclusive em aba anônima, o que
+comprova que é público. O worker grava o arquivo com o cabeçalho
+`Content-Disposition: attachment; filename="<nome original>.<formato>"`, então
+abrir o link **baixa** o arquivo com um nome amigável (`ferias.jpg` em vez do
+UUID), em vez de só exibi-lo. A interface mostra uma miniatura do resultado:
+a tag `<img>` ignora esse cabeçalho e exibe a imagem normalmente. No console do MinIO, o bucket aparece com
+`Access: CUSTOM`, que é essa política de leitura. O endereço usa `localhost`,
+então só funciona no computador onde o Docker roda. Para acessar de outro
+aparelho na mesma rede, defina `MINIO_PUBLIC_URL=http://<IP-do-computador>:9000`
+no `.env`.
 
 ### Endpoints da API
 
 | Método e rota | Descrição |
 |---|---|
 | `POST /api/jobs` | multipart: `file`, `targetFormat`, `email`. Responde **202** com `jobId` |
-| `GET /api/jobs/{jobId}` | estado do pedido (PENDENTE, PROCESSANDO, CONCLUIDO, ERRO) |
+| `GET /api/jobs/{jobId}` | estado do pedido (PENDENTE, PROCESSANDO, CONCLUIDO, ERRO). É o que a caixa "Consultar um pedido" da interface usa (RF07) |
 | `GET /api/jobs` | pedidos recentes |
 | `GET /api/events` | stream SSE com as mudanças de todos os pedidos |
 | `GET /api/jobs/{jobId}/events` | stream SSE de um pedido (encerra no estado final) |
@@ -218,7 +243,36 @@ Todas têm valor padrão no `docker-compose.yml`. Para alterar, copie
 | `RABBITMQ_USER` / `RABBITMQ_PASSWORD` | `conversor` / `conversor123` | broker |
 | `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | `minioadmin` / `minioadmin123` | storage |
 | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | `conversor` | banco |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_FROM` | `mailpit` / `1025` | e-mail |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_FROM` | `mailpit` / `1025` | servidor de e-mail |
+| `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_STARTTLS` | vazio / vazio / `false` | autenticação para SMTP real |
+
+### E-mail: Mailpit ou caixa de entrada real
+
+Por padrão os e-mails vão para o **Mailpit**, um servidor SMTP de teste que
+captura todas as mensagens e as mostra em http://localhost:8025, sem
+entregá-las de verdade. O enunciado permite essa opção ("servidor SMTP real ou
+um simulador local como MailHog ou Mailpit"), e ela é a mais segura para a
+demonstração: não depende de internet nem expõe senha.
+
+Para receber na caixa de entrada real, aponte o notificador para um SMTP de
+verdade. Exemplo com Gmail:
+
+1. Na conta Google, ative a verificação em duas etapas.
+2. Gere uma senha de app em https://myaccount.google.com/apppasswords.
+3. Crie o `.env` (copie de `.env.example`) e preencha:
+   ```
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_STARTTLS=true
+   SMTP_USER=seu.email@gmail.com
+   SMTP_PASSWORD=abcd efgh ijkl mnop
+   SMTP_FROM=Conversor de Mídia <seu.email@gmail.com>
+   ```
+4. Rode `docker compose up -d` (só o notificador é recriado).
+
+Nunca faça commit do `.env`: ele já está no `.gitignore`. Lembre que o link
+dentro do e-mail aponta para `localhost`, então abrir o e-mail no celular não
+vai baixar o arquivo (ver "Onde está o link público").
 
 **Sobre `CONVERSION_DELAY_SECONDS`:** converter um PNG em JPG leva
 milissegundos. Sem um atraso seria impossível derrubar um worker "no meio da
@@ -433,9 +487,14 @@ terminal com `docker compose logs -f worker`.
    com "tentativa 2", sem arquivo duplicado e com um único e-mail. (O Docker
    pode reiniciar o container derrubado por causa da *restart policy*; isso
    não interfere no teste.)
-7. **Extra: retry e DLQ.** Envie um arquivo `.png` corrompido (por exemplo, um
-   PNG verdadeiro truncado com um editor). Ele vai para `conversion.dlq`, o
-   pedido fica como Erro e chega um e-mail explicando o motivo. Para mostrar
+7. **Extra: retry e DLQ.** Envie `samples/corrompido.png`. Ele tem a
+   assinatura PNG correta, então passa pela validação da API, mas os dados
+   estão cortados. O worker detecta o erro permanente e rejeita a mensagem: ela
+   aparece em `conversion.dlq` no RabbitMQ, o pedido fica como Erro, a origem
+   continua no bucket `uploads` para diagnóstico e chega um e-mail explicando
+   o motivo. Um arquivo com o cabeçalho estragado, ou um GIF renomeado para
+   `.png` (`samples/gif-disfarcado.png`), nem chega à fila: a API recusa na
+   hora (HTTP 415). Para mostrar
    uma retentativa, rode `docker compose stop minio` com pedidos na fila,
    espere uma falha ("aguardando nova tentativa") e depois
    `docker compose start minio`: o pedido conclui na tentativa seguinte.
@@ -472,6 +531,7 @@ conversor-midia/
 │   └── postgres/init.sql       # tabelas jobs e notifications
 ├── tests/                      # pytest
 ├── scripts/benchmark.py        # evidência de escalabilidade
+├── samples/                    # arquivos para testar: válidos, corrompido, disfarçado
 └── docs/                       # relatório técnico
 ```
 

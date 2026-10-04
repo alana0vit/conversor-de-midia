@@ -19,13 +19,15 @@ def build_message(evt: JobFinishedEvent, sender: str) -> EmailMessage:
         msg["Subject"] = f"Sua imagem {name} foi convertida para {target}"
         text = (
             f"Olá!\n\nA conversão de {name} para {target} foi concluída.\n\n"
-            f"Baixe o arquivo aqui:\n{evt.publicUrl}\n\n"
+            f"Link público do arquivo:\n{evt.publicUrl}\n\n"
             f"Pedido: {evt.jobId}\n"
         )
         body = (
             f"<p>Olá!</p><p>A conversão de <strong>{html.escape(name)}</strong> para "
             f"{target} foi concluída.</p>"
             f'<p><a href="{html.escape(evt.publicUrl or "")}">Baixar o arquivo convertido</a></p>'
+            f'<p style="font-size:13px">Link público: '
+            f'<code>{html.escape(evt.publicUrl or "")}</code></p>'
             f'<p style="color:#666;font-size:12px">Pedido {evt.jobId}</p>'
         )
     else:
