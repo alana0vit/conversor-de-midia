@@ -1,4 +1,3 @@
-"""Acesso ao MinIO (S3). Todas as operações usadas são idempotentes."""
 from __future__ import annotations
 
 import io

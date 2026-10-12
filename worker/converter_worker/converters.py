@@ -1,8 +1,3 @@
-"""Conversores de mídia, indexados por (formato_origem, formato_destino).
-
-Para adicionar WAV -> MP3: escrever uma função que chama o FFmpeg e registrá-la
-em CONVERTERS (e incluir a conversão no contrato). Nada mais no worker muda.
-"""
 from __future__ import annotations
 
 from typing import Callable

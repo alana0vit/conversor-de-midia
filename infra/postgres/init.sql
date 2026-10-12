@@ -1,6 +1,3 @@
--- Executado automaticamente pelo Postgres apenas na PRIMEIRA subida
--- (quando o volume ainda está vazio).
-
 CREATE TABLE IF NOT EXISTS jobs (
     id                UUID PRIMARY KEY,               -- jobId (chave de idempotência)
     original_filename TEXT        NOT NULL,

@@ -1,13 +1,12 @@
-// Interface do conversor. Fala SOMENTE com a API (/api/...), via HTTP.
 const API = "/api";
 const LABEL = { PENDENTE: "Pendente", PROCESSANDO: "Processando", CONCLUIDO: "Concluído", ERRO: "Erro" };
 const ALIASES = { jpeg: "jpg" };
 const MAX_MB = 20;
 
-let formats = { png: ["jpg"], jpg: ["png"] };  // substituído pelo GET /api/formats
-const jobs = new Map();                         // jobId -> dados do job
-const highlighted = new Set();                  // pedidos enviados nesta aba
-let selected = [];                              // [{ id, file, source, target, error }]
+let formats = { png: ["jpg"], jpg: ["png"] };
+const jobs = new Map();
+const highlighted = new Set();
+let selected = [];
 let nextId = 1;
 
 const $ = (id) => document.getElementById(id);
@@ -19,7 +18,6 @@ function sourceFormat(name) {
   return ALIASES[ext] || ext;
 }
 
-// ---------- arquivos escolhidos (com remoção individual) --------------------------
 function addFiles(fileList) {
   for (const file of fileList) {
     const source = sourceFormat(file.name);
@@ -100,8 +98,7 @@ $("upload-form").addEventListener("submit", async (ev) => {
   $("submit").disabled = true;
   const accepted = [];
   const failed = [];
-  // Um pedido (e um jobId) por arquivo. Cada POST volta em milissegundos,
-  // porque a API só grava no MinIO e publica na fila.
+ 
   await Promise.all(toSend.map(async (item) => {
     const data = new FormData();
     data.append("file", item.file);
@@ -140,8 +137,7 @@ function upsert(job) {
 
 function linkBlock(j) {
   const fmt = (j.targetFormat || "").toUpperCase();
-  // O objeto foi gravado com "Content-Disposition: attachment": abrir o link
-  // BAIXA o arquivo. A miniatura usa <img>, que ignora esse cabeçalho.
+
   return `
     <div class="result">
       <a href="${esc(j.publicUrl)}" class="thumb" title="Baixar ${fmt}">
@@ -200,7 +196,6 @@ function render() {
   }).join("");
 }
 
-// Botões "Copiar" (lista e consulta)
 document.addEventListener("click", async (ev) => {
   const url = ev.target.dataset?.copy;
   if (!url) return;
@@ -214,9 +209,6 @@ document.addEventListener("click", async (ev) => {
   }
 });
 
-// ---------- tempo real: Server-Sent Events ----------------------------------
-// UM stream para todos os pedidos (não um por pedido): navegadores limitam a
-// ~6 conexões simultâneas por servidor em HTTP/1.1.
 function connectEvents() {
   const es = new EventSource(`${API}/events`);
   es.onmessage = (ev) => {
@@ -236,7 +228,6 @@ async function refreshList() {
   } catch { /* API reiniciando: tenta de novo no próximo ciclo */ }
 }
 
-// ---------- consulta por código (RF07) -------------------------------------------
 let lookedUp = null;
 
 function showLookup(job) {
@@ -259,7 +250,7 @@ $("lookup-form").addEventListener("submit", async (ev) => {
     return;
   }
   const job = await res.json();
-  lookedUp = job.jobId;               // continua atualizando pelo stream
+  lookedUp = job.jobId;
   showLookup(job);
   upsert(job);
   highlighted.add(job.jobId);
@@ -267,7 +258,6 @@ $("lookup-form").addEventListener("submit", async (ev) => {
   document.getElementById(`job-${job.jobId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
 });
 
-// ---------- estado do sistema (observabilidade) ----------------------------------
 async function refreshMetrics() {
   try {
     const res = await fetch(`${API}/metrics`);
@@ -299,7 +289,6 @@ async function refreshMetrics() {
   } catch { /* ignora: próxima rodada tenta de novo */ }
 }
 
-// ---------- início ------------------------------------------------------------------
 (async function init() {
   try {
     formats = await (await fetch(`${API}/formats`)).json();

@@ -1,4 +1,3 @@
-"""Leitura de variáveis de ambiente e utilitários comuns aos serviços."""
 from __future__ import annotations
 
 import logging

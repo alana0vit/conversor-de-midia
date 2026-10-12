@@ -1,12 +1,3 @@
-"""Contrato das mensagens trocadas pelo broker.
-
-Este arquivo é a ÚNICA interface entre a API, os workers e o notificador.
-Nenhum serviço importa código de outro serviço: todos falam apenas por
-estas duas mensagens.
-
-Regra de ouro: a mensagem transporta metadados e a *referência* ao arquivo
-(sourceUrl). O conteúdo binário nunca passa pelo broker.
-"""
 from __future__ import annotations
 
 import json
@@ -26,7 +17,6 @@ SUPPORTED_CONVERSIONS: dict[str, set[str]] = {
 SOURCE_TYPES = {"png": "image", "jpg": "image"}        # formato -> tipo de mídia
 CONTENT_TYPES = {"png": "image/png", "jpg": "image/jpeg"}
 
-# Extensões diferentes para o mesmo formato.
 FORMAT_ALIASES = {"jpeg": "jpg"}
 
 
@@ -35,8 +25,6 @@ def normalize_format(value: str) -> str:
     return FORMAT_ALIASES.get(value, value)
 
 
-# Status persistidos no banco (sem acento para evitar problemas de encoding;
-# a interface exibe com acento).
 PENDENTE = "PENDENTE"
 PROCESSANDO = "PROCESSANDO"
 CONCLUIDO = "CONCLUIDO"
@@ -63,11 +51,7 @@ def is_valid_email(value: str) -> bool:
 
 
 def priority_for_size(size_bytes: int) -> int:
-    """Prioridade na fila (0-10): arquivos menores passam na frente.
 
-    Adaptação da pontuação extra "imagens antes de vídeos longos" para um
-    projeto com um único formato: o critério passa a ser o tamanho.
-    """
     mb = size_bytes / (1024 * 1024)
     if mb < 1:
         return 9
@@ -104,7 +88,6 @@ def _check_uuid(value: str) -> None:
 
 @dataclass(frozen=True)
 class ConversionRequest:
-    """Mensagem da fila de conversão (API -> workers)."""
 
     jobId: str
     sourceUrl: str
@@ -146,7 +129,6 @@ class ConversionRequest:
 
 @dataclass(frozen=True)
 class JobFinishedEvent:
-    """Evento de término (workers -> notificador), publicado no sucesso e na falha definitiva."""
 
     jobId: str
     status: str                     # CONCLUIDO ou ERRO

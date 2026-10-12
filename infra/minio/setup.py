@@ -1,12 +1,3 @@
-"""Configura o object storage (MinIO/Silo). Idempotente: pode rodar várias vezes.
-
-1. cria os buckets 'uploads' (privado) e 'converted';
-2. libera leitura pública (somente GetObject) no bucket 'converted' -> RF04;
-3. aplica lifecycle: objetos convertidos expiram após N dias (pontuação extra).
-
-Usa a mesma biblioteca (minio-py) que a API e o worker, então não depende
-da imagem do cliente 'mc'.
-"""
 import json
 import os
 import sys
@@ -30,12 +21,10 @@ client = Minio(
     secure=url.scheme == "https",
 )
 
-
 def log(msg: str) -> None:
     print(f"[minio-init] {msg}", flush=True)
 
 
-# Espera o servidor aceitar conexões (substitui o healthcheck do container).
 for attempt in range(1, 61):
     try:
         client.list_buckets()

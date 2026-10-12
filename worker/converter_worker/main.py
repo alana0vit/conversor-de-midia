@@ -1,13 +1,3 @@
-"""Worker de conversão: consome a fila e traduz as decisões do JobProcessor em
-operações do RabbitMQ.
-
-  * auto_ack=False     -> a mensagem só sai da fila quando damos ack. Se o
-                          container morrer antes, o RabbitMQ a entrega a outro worker.
-  * prefetch_count=1   -> cada worker recebe UMA mensagem por vez. Com N workers,
-                          o broker reparte a fila entre eles (competing consumers).
-  * confirm_delivery   -> eventos e retentativas publicados pelo worker têm
-                          confirmação do broker antes de darmos ack na original.
-"""
 from __future__ import annotations
 
 import logging

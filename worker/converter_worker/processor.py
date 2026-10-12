@@ -1,19 +1,3 @@
-"""Regras de processamento de UMA mensagem de conversão.
-
-Este módulo não conhece o RabbitMQ: recebe a mensagem já interpretada e
-devolve uma decisão (ACK, RETRY ou DEAD). Quem traduz a decisão em
-ack/reject/publicação é o main.py. Essa separação permite testar todas as
-regras de idempotência e falha sem subir broker, banco ou MinIO.
-
-Ordem das etapas (cada uma é segura de repetir):
-  1. lock do jobId          -> dois workers nunca processam o mesmo job juntos
-  2. status CONCLUIDO/ERRO? -> mensagem duplicada: só finaliza de novo e confirma
-  3. claim (+1 tentativa)   -> limite de tentativas vale até para worker que morre
-  4. resultado já existe?   -> reentrega após queda: pula a conversão
-  5. baixa, converte, grava converted/<jobId>.jpg (nome fixo = sem duplicatas)
-  6. marca CONCLUIDO no banco
-  7. apaga a origem e publica o evento de término
-"""
 from __future__ import annotations
 
 import logging

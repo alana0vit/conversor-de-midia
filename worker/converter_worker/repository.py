@@ -1,13 +1,3 @@
-"""Acesso ao banco pelo worker.
-
-Cada mensagem é processada dentro de uma "sessão" que segura UMA conexão do
-Postgres do começo ao fim. Nela o worker pega um *advisory lock* com o jobId.
-
-Por que advisory lock? Ele é da sessão do banco: se o container do worker
-morrer, a conexão cai e o Postgres libera o lock sozinho. Assim um worker
-morto nunca deixa um job "travado", e dois workers vivos nunca convertem o
-mesmo job ao mesmo tempo.
-"""
 from __future__ import annotations
 
 from contextlib import contextmanager

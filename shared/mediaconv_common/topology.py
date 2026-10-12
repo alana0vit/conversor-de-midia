@@ -1,24 +1,3 @@
-"""Topologia do RabbitMQ (exchanges, filas e ligações).
-
-Todos os serviços chamam declare_topology() ao conectar. As declarações são
-idempotentes: se a fila já existe com os mesmos argumentos, nada acontece.
-Assim, não importa qual serviço sobe primeiro.
-
-    API --(convert)--> [conversion] --> conversion.requests --> workers
-                                             |  reject (falha definitiva)
-                                             v
-                                  [conversion.dlx] --> conversion.dlq
-
-    worker (falha temporária) --> conversion.retry (espera TTL)
-                                     |  expira
-                                     v
-                                  [conversion] --> conversion.requests (nova tentativa)
-
-    worker --(job.completed / job.failed)--> [jobs.events] --> notifications --> notificador
-                                                                  |  excedeu 5 entregas
-                                                                  v
-                                                 [notifications.dlx] --> notifications.dlq
-"""
 from __future__ import annotations
 
 import logging
